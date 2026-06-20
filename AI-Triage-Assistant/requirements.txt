@@ -1,0 +1,4 @@
+azure-ai-inference>=1.0.0b4
+azure-identity>=1.17.0
+azure-keyvault-secrets>=4.8.0
+python-dotenv>=1.0.0
