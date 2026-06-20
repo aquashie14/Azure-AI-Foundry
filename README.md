@@ -47,11 +47,11 @@ automatically.
 
 | Role | Owner |
 |---|---|
-| Platform engineer | TBD |
-| Pipeline engineer | TBD |
-| Governance engineer | TBD |
-| AI application engineer | TBD |
-| Delivery lead (rotating weekly) | TBD |
+| Platform engineer | Abubakar |
+| Pipeline engineer | Agansokoa |
+| Governance engineer | Samuel |
+| AI application engineer | Gladys |
+| Delivery lead (rotating weekly) | Ama Quashie |
 
 ## Tooling Checklist
 
