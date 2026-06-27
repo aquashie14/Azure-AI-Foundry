@@ -1,0 +1,100 @@
+name: PR Checks
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - "infra/**"
+      - ".github/workflows/**"
+
+permissions:
+  id-token: write       # needed for OIDC
+  contents: read
+  pull-requests: write  # needed to post the plan as a PR comment
+
+env:
+  ARM_CLIENT_ID:       ${{ secrets.AZURE_CLIENT_ID }}
+  ARM_TENANT_ID:       ${{ secrets.AZURE_TENANT_ID }}
+  ARM_SUBSCRIPTION_ID: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+  ARM_USE_OIDC:        "true"
+  TF_VAR_FILE:         "environments/dev/terraform.tfvars"
+
+jobs:
+  terraform-checks:
+    name: Terraform checks
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: infra
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: "~1.6"
+
+      # ── Format check ──────────────────────────────────────────────────────
+      - name: Terraform fmt
+        run: terraform fmt -check -recursive
+        id: fmt
+
+      # ── Initialise with remote backend ────────────────────────────────────
+      - name: Terraform init
+        run: |
+          terraform init \
+            -backend-config="storage_account_name=${{ secrets.TF_STATE_STORAGE_ACCOUNT }}"
+        id: init
+
+      # ── Validate ──────────────────────────────────────────────────────────
+      - name: Terraform validate
+        run: terraform validate
+        id: validate
+
+      # ── Security scan (tfsec) ─────────────────────────────────────────────
+      - name: tfsec security scan
+        uses: aquasecurity/tfsec-action@v1.0.3
+        with:
+          working_directory: infra
+          soft_fail: false
+
+      # ── Plan ──────────────────────────────────────────────────────────────
+      - name: Terraform plan
+        run: terraform plan -var-file="${TF_VAR_FILE}" -no-color -out=tfplan
+        id: plan
+        continue-on-error: true
+
+      # ── Post plan as PR comment ───────────────────────────────────────────
+      - name: Post plan to PR
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const output = `
+            #### Terraform Format: \`${{ steps.fmt.outcome }}\`
+            #### Terraform Init: \`${{ steps.init.outcome }}\`
+            #### Terraform Validate: \`${{ steps.validate.outcome }}\`
+            #### Terraform Plan: \`${{ steps.plan.outcome }}\`
+
+            <details><summary>Show Plan</summary>
+
+            \`\`\`terraform
+            ${{ steps.plan.outputs.stdout }}
+            \`\`\`
+
+            </details>
+
+            *Pushed by: @${{ github.actor }}, Action: \`${{ github.event_name }}\`*`;
+
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: output
+            })
+
+      # Fail the job if the plan itself failed
+      - name: Check plan status
+        if: steps.plan.outcome == 'failure'
+        run: exit 1

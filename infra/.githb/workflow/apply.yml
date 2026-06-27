@@ -1,0 +1,79 @@
+name: Terraform Apply
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "infra/**"
+
+permissions:
+  id-token: write
+  contents: read
+
+env:
+  ARM_CLIENT_ID:       ${{ secrets.AZURE_CLIENT_ID }}
+  ARM_TENANT_ID:       ${{ secrets.AZURE_TENANT_ID }}
+  ARM_SUBSCRIPTION_ID: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+  ARM_USE_OIDC:        "true"
+
+jobs:
+  # ── Dev: apply automatically on merge ──────────────────────────────────
+  apply-dev:
+    name: Apply — dev
+    runs-on: ubuntu-latest
+    environment: dev
+    defaults:
+      run:
+        working-directory: infra
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: "~1.6"
+
+      - name: Terraform init
+        run: |
+          terraform init \
+            -backend-config="storage_account_name=${{ secrets.TF_STATE_STORAGE_ACCOUNT }}" \
+            -backend-config="key=dev.terraform.tfstate"
+
+      - name: Terraform apply — dev
+        run: |
+          terraform apply \
+            -var-file="environments/dev/terraform.tfvars" \
+            -auto-approve
+
+  # ── Prod: requires human approval gate before applying ─────────────────
+  apply-prod:
+    name: Apply — prod
+    runs-on: ubuntu-latest
+    environment: production    # GitHub environment with required reviewer set
+    needs: apply-dev
+    defaults:
+      run:
+        working-directory: infra
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: "~1.6"
+
+      - name: Terraform init
+        run: |
+          terraform init \
+            -backend-config="storage_account_name=${{ secrets.TF_STATE_STORAGE_ACCOUNT }}" \
+            -backend-config="key=prod.terraform.tfstate"
+
+      - name: Terraform apply — prod
+        run: |
+          terraform apply \
+            -var-file="environments/prod/terraform.tfvars" \
+            -auto-approve
