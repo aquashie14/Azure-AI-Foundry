@@ -18,13 +18,13 @@ permissions:
   pull-requests: write
 
 env:
-  # Azure OIDC authentication
+  # Azure OIDC authentication — used only by the plan job
   ARM_CLIENT_ID:       ${{ secrets.AZURE_CLIENT_ID }}
   ARM_TENANT_ID:       ${{ secrets.AZURE_TENANT_ID }}
   ARM_SUBSCRIPTION_ID: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
   ARM_USE_OIDC:        "true"
 
-  # Terraform variables — same pattern as apply.yml
+  # Terraform variables
   TF_VAR_resource_prefix:   "aqsh"
   TF_VAR_environment:       "dev"
   TF_VAR_location:          "uksouth"
@@ -37,8 +37,9 @@ env:
   TF_VAR_cost_centre:       ${{ secrets.TF_VAR_COST_CENTRE }}
 
 jobs:
-  terraform-checks:
-    name: Terraform checks
+  # ── Runs on every branch push and every PR — no Azure auth needed ─────────
+  static-checks:
+    name: Static checks (fmt / validate / tfsec)
     runs-on: ubuntu-latest
     defaults:
       run:
@@ -53,29 +54,52 @@ jobs:
         with:
           terraform_version: "~1.6"
 
-      # ── Format check ────────────────────────────────────────────────────
+      # ── Format ───────────────────────────────────────────────────────────
       - name: Terraform fmt
         id: fmt
         run: terraform fmt -check -recursive
 
-      # ── Initialise with remote backend ───────────────────────────────────
+      # ── Init (no backend — no Azure credentials required) ────────────────
       - name: Terraform init
         id: init
-        run: |
-          terraform init \
-            -backend-config="storage_account_name=${{ secrets.TF_STATE_STORAGE_ACCOUNT }}"
+        run: terraform init -backend=false
 
       # ── Validate ─────────────────────────────────────────────────────────
       - name: Terraform validate
         id: validate
         run: terraform validate
 
-      # ── Security scan ────────────────────────────────────────────────────
+      # ── Security scan ─────────────────────────────────────────────────────
       - name: tfsec security scan
         uses: aquasecurity/tfsec-action@v1.0.3
         with:
           working_directory: infra
           soft_fail: true
+
+  # ── Runs only on PRs — OIDC subject = pull_request (must be registered) ──
+  plan:
+    name: Terraform plan
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: infra
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: "~1.6"
+
+      # ── Initialise with remote backend ────────────────────────────────────
+      - name: Terraform init
+        id: init
+        run: |
+          terraform init \
+            -backend-config="storage_account_name=${{ secrets.TF_STATE_STORAGE_ACCOUNT }}"
 
       # ── Plan ─────────────────────────────────────────────────────────────
       - name: Terraform plan
@@ -83,16 +107,13 @@ jobs:
         run: terraform plan -no-color -out=tfplan
         continue-on-error: true
 
-      # ── Post plan as PR comment ──────────────────────────────────────────
+      # ── Post plan output as PR comment ────────────────────────────────────
       - name: Post plan to PR
-        if: github.event_name == 'pull_request'
         uses: actions/github-script@v7
         with:
           script: |
             const output = `
-            #### Terraform Format: \`${{ steps.fmt.outcome }}\`
             #### Terraform Init: \`${{ steps.init.outcome }}\`
-            #### Terraform Validate: \`${{ steps.validate.outcome }}\`
             #### Terraform Plan: \`${{ steps.plan.outcome }}\`
 
             <details><summary>Show Plan</summary>
@@ -112,7 +133,7 @@ jobs:
               body: output
             })
 
-      # ── Fail if plan failed ──────────────────────────────────────────────
+      # ── Fail if plan failed ───────────────────────────────────────────────
       - name: Check plan status
         if: steps.plan.outcome == 'failure'
         run: exit 1
