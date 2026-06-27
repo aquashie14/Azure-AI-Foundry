@@ -1,0 +1,85 @@
+# ===========================
+# TERRAFORM
+# ===========================
+# Downloaded provider plugins — too large, machine-specific
+**/.terraform/
+
+# State files — never commit, lives in Azure Storage
+*.tfstate
+*.tfstate.*
+
+# Plan files
+*.tfplan
+*.tfplan.*
+
+# Crash logs
+crash.log
+crash.*.log
+
+# Variable files with secrets — covers root and all subdirectories
+terraform.tfvars
+**/terraform.tfvars
+*.auto.tfvars
+
+# Override files
+override.tf
+override.tf.json
+*_override.tf
+*_override.tf.json
+
+# CLI config
+.terraformrc
+terraform.rc
+
+# ===========================
+# PYTHON
+# ===========================
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.venv/
+venv/
+env/
+*.egg-info/
+dist/
+build/
+.pytest_cache/
+.mypy_cache/
+
+# ===========================
+# APP RUNTIME STATE
+# ===========================
+# Decisions log from the web UI
+**/decisions.json
+
+# ===========================
+# SECRETS — NEVER COMMIT
+# ===========================
+*.pem
+*.key
+.env
+.env.*
+!.env.example
+
+# ===========================
+# OS FILES
+# ===========================
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# ===========================
+# VS CODE
+# ===========================
+.vscode/settings.json
+.vscode/launch.json
+.vscode/*.code-workspace
+
+# ===========================
+# WHAT IS SAFE TO COMMIT
+# ===========================
+# .terraform.lock.hcl       ← KEEP THIS — locks provider versions for the team
+# .env.example              ← KEEP THIS — template with no real secrets
+# environments/dev/         ← BLOCKED by **/terraform.tfvars above
+# environments/prod/        ← BLOCKED by **/terraform.tfvars above
