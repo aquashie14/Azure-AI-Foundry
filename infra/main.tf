@@ -10,7 +10,7 @@ data "azurerm_resource_group" "main" {
 # STORAGE ACCOUNT
 # =============================================================
 # Test: triggering the CI/CD pipeline via pull request
-#Test : Retriggering the CI/CD pipeline via pull request
+#Test : Retriggering the CI/CD pipeline via pull request1
 resource "azurerm_storage_account" "main" {
   name                     = "st${var.resource_prefix}${var.environment}"
   resource_group_name      = data.azurerm_resource_group.main.name
