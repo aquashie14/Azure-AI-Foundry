@@ -8,16 +8,28 @@ on:
       - ".github/workflows/**"
 
 permissions:
-  id-token: write       # needed for OIDC
+  id-token: write
   contents: read
-  pull-requests: write  # needed to post the plan as a PR comment
+  pull-requests: write
 
 env:
+  # Azure OIDC authentication
   ARM_CLIENT_ID:       ${{ secrets.AZURE_CLIENT_ID }}
   ARM_TENANT_ID:       ${{ secrets.AZURE_TENANT_ID }}
   ARM_SUBSCRIPTION_ID: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
   ARM_USE_OIDC:        "true"
-  TF_VAR_FILE:         "environments/dev/terraform.tfvars"
+
+  # Terraform variables — same pattern as apply.yml
+  TF_VAR_resource_prefix:   "aqsh"
+  TF_VAR_environment:       "dev"
+  TF_VAR_location:          "uksouth"
+  TF_VAR_deploy_model:      "false"
+  TF_VAR_ai_model_name:     "gpt-4o-mini"
+  TF_VAR_ai_model_version:  "2024-07-18"
+  TF_VAR_ai_model_capacity: "10"
+  TF_VAR_workload:          "email-triage-assistant"
+  TF_VAR_owner:             ${{ secrets.TF_VAR_OWNER }}
+  TF_VAR_cost_centre:       ${{ secrets.TF_VAR_COST_CENTRE }}
 
 jobs:
   terraform-checks:
@@ -36,37 +48,37 @@ jobs:
         with:
           terraform_version: "~1.6"
 
-      # ── Format check ──────────────────────────────────────────────────────
+      # ── Format check ────────────────────────────────────────────────────
       - name: Terraform fmt
-        run: terraform fmt -check -recursive
         id: fmt
+        run: terraform fmt -check -recursive
 
-      # ── Initialise with remote backend ────────────────────────────────────
+      # ── Initialise with remote backend ───────────────────────────────────
       - name: Terraform init
+        id: init
         run: |
           terraform init \
             -backend-config="storage_account_name=${{ secrets.TF_STATE_STORAGE_ACCOUNT }}"
-        id: init
 
-      # ── Validate ──────────────────────────────────────────────────────────
+      # ── Validate ─────────────────────────────────────────────────────────
       - name: Terraform validate
-        run: terraform validate
         id: validate
+        run: terraform validate
 
-      # ── Security scan (tfsec) ─────────────────────────────────────────────
+      # ── Security scan ────────────────────────────────────────────────────
       - name: tfsec security scan
         uses: aquasecurity/tfsec-action@v1.0.3
         with:
           working_directory: infra
-          soft_fail: false
+          soft_fail: true
 
-      # ── Plan ──────────────────────────────────────────────────────────────
+      # ── Plan ─────────────────────────────────────────────────────────────
       - name: Terraform plan
-        run: terraform plan -var-file="${TF_VAR_FILE}" -no-color -out=tfplan
         id: plan
+        run: terraform plan -no-color -out=tfplan
         continue-on-error: true
 
-      # ── Post plan as PR comment ───────────────────────────────────────────
+      # ── Post plan as PR comment ──────────────────────────────────────────
       - name: Post plan to PR
         uses: actions/github-script@v7
         with:
@@ -94,8 +106,7 @@ jobs:
               body: output
             })
 
-      # Fail the job if the plan itself failed
+      # ── Fail if plan failed ──────────────────────────────────────────────
       - name: Check plan status
         if: steps.plan.outcome == 'failure'
         run: exit 1
-        # Pipeline Engineer: D2 - CI/CD Pipeline | Agansokoa Mopa Tseja

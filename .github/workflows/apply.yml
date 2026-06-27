@@ -11,13 +11,26 @@ permissions:
   contents: read
 
 env:
+  # Azure OIDC authentication — no stored passwords
   ARM_CLIENT_ID:       ${{ secrets.AZURE_CLIENT_ID }}
   ARM_TENANT_ID:       ${{ secrets.AZURE_TENANT_ID }}
   ARM_SUBSCRIPTION_ID: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
   ARM_USE_OIDC:        "true"
 
+  # Terraform variables — non-sensitive values set directly here,
+  # sensitive values injected from GitHub secrets
+  TF_VAR_resource_prefix:   "aqsh"
+  TF_VAR_location:          "uksouth"
+  TF_VAR_deploy_model:      "false"
+  TF_VAR_ai_model_name:     "gpt-4o-mini"
+  TF_VAR_ai_model_version:  "2024-07-18"
+  TF_VAR_ai_model_capacity: "10"
+  TF_VAR_workload:          "email-triage-assistant"
+  TF_VAR_owner:             ${{ secrets.TF_VAR_OWNER }}
+  TF_VAR_cost_centre:       ${{ secrets.TF_VAR_COST_CENTRE }}
+
 jobs:
-  # ── Dev: apply automatically on merge ──────────────────────────────────
+  # ── Dev: applies automatically on merge to main ──────────────────────────
   apply-dev:
     name: Apply — dev
     runs-on: ubuntu-latest
@@ -41,17 +54,21 @@ jobs:
             -backend-config="storage_account_name=${{ secrets.TF_STATE_STORAGE_ACCOUNT }}" \
             -backend-config="key=dev.terraform.tfstate"
 
-      - name: Terraform apply — dev
+      - name: Terraform plan
         run: |
-          terraform apply \
-            -var-file="environments/dev/terraform.tfvars" \
-            -auto-approve
+          terraform plan \
+            -var="environment=dev" \
+            -no-color \
+            -out=tfplan
 
-  # ── Prod: requires human approval gate before applying ─────────────────
+      - name: Terraform apply — dev
+        run: terraform apply -auto-approve tfplan
+
+  # ── Prod: pauses for human approval before applying ─────────────────────
   apply-prod:
     name: Apply — prod
     runs-on: ubuntu-latest
-    environment: production    # GitHub environment with required reviewer set
+    environment: production
     needs: apply-dev
     defaults:
       run:
@@ -72,8 +89,13 @@ jobs:
             -backend-config="storage_account_name=${{ secrets.TF_STATE_STORAGE_ACCOUNT }}" \
             -backend-config="key=prod.terraform.tfstate"
 
-      - name: Terraform apply — prod
+      - name: Terraform plan
         run: |
-          terraform apply \
-            -var-file="environments/prod/terraform.tfvars" \
-            -auto-approve
+          terraform plan \
+            -var="environment=prod" \
+            -var="ai_model_capacity=20" \
+            -no-color \
+            -out=tfplan
+
+      - name: Terraform apply — prod
+        run: terraform apply -auto-approve tfplan
