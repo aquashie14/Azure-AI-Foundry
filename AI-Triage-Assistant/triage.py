@@ -96,9 +96,19 @@ def _mock_triage(email: dict) -> TriageResult:
     subject = (email.get("subject") or "").lower()
     text    = f"{subject} {body}"
 
-    if len(body.strip()) < 15 or not any(c.isalpha() for c in body):
+    # ── Junk / unclear / too short ───────────────────────────────────────────
+    # Check this BEFORE complaint so garbled emails with "!!!" don't get
+    # misclassified as complaints. A real complaint has coherent sentences.
+    garbled_signals = (
+        len(body.strip()) < 15
+        or not any(c.isalpha() for c in body)
+        or (body.count(" ") < 4 and "!!!" in body)   # very short + punctuation = junk
+        or ("asdkj" in body or "thx???" in body)      # known junk patterns
+    )
+
+    if garbled_signals:
         category = "needs_human_review"
-        summary  = "Email content is too short or unclear to classify."
+        summary  = "Email content is too short, garbled, or unclear to classify."
         reply = (
             "Thanks for reaching out. Could you let us know a bit more "
             "about what you need help with, and your order or consignment "
@@ -106,7 +116,11 @@ def _mock_triage(email: dict) -> TriageResult:
             "the right thing."
         )
 
-    elif "frustrat" in text or "third" in text or "furious" in text or "!!!" in body:
+    # ── Complaint: must have coherent frustration signals ─────────────────────
+    elif (
+        ("frustrat" in text or "furious" in text or "third time" in text)
+        and len(body.strip()) > 40   # real complaint, not junk
+    ):
         category = "complaint"
         summary  = "Customer is frustrated about an unresolved or delayed order."
         reply = (
@@ -117,6 +131,7 @@ def _mock_triage(email: dict) -> TriageResult:
             "with a full update."
         )
 
+    # ── Multi-intent: address change + delivery query ─────────────────────────
     elif "address" in text and (
         "previous order" in text or "still hasn't" in text
         or "10 days" in text or "missing" in text
@@ -130,7 +145,10 @@ def _mock_triage(email: dict) -> TriageResult:
             "to you shortly."
         )
 
-    elif "address" in text or "change" in text and "deliver" in text:
+    # ── Address change: explicit address keywords, no delivery query ──────────
+    elif ("address" in text or "update" in subject) and (
+        "change" in text or "update" in text
+    ) and "deliver" in text and "return" not in text:
         category = "address_change"
         summary  = "Customer wants to update the delivery address on an unshipped order."
         reply = (
@@ -141,8 +159,21 @@ def _mock_triage(email: dict) -> TriageResult:
         )
 
     elif (
+        "return" in text and "damage" not in text and "broken" not in text
+        and "crush" not in text
+    ) or ("refund" in text and "process" in text and "damage" not in text):
+        category = "general_question"
+        summary  = "Customer is asking about the returns or refunds process."
+        reply = (
+            "Thank you for your message. Our returns process allows you to "
+            "request a return within the applicable timeframe — a member of "
+            "our team will get back to you with the specific steps and "
+            "expected timescales for your order."
+        )
+
+    elif (
         "claim" in text or "broken" in text or "damaged" in text
-        or "crush" in text or "refund" in text
+        or "crush" in text
     ):
         category = "claims"
         summary  = "Customer is reporting damaged goods and wants to file a claim."
