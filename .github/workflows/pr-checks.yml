@@ -6,6 +6,11 @@ on:
     paths:
       - "infra/**"
       - ".github/workflows/**"
+  push:
+    branches-ignore: [main]
+    paths:
+      - "infra/**"
+      - ".github/workflows/**"
 
 permissions:
   id-token: write
@@ -80,6 +85,7 @@ jobs:
 
       # ── Post plan as PR comment ──────────────────────────────────────────
       - name: Post plan to PR
+        if: github.event_name == 'pull_request'
         uses: actions/github-script@v7
         with:
           script: |
