@@ -1,5 +1,4 @@
 name: Terraform Apply
-
 on:
   push:
     branches: [main]
@@ -38,13 +37,12 @@ jobs:
     defaults:
       run:
         working-directory: infra
-
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v4.2.2          # ✅ Updated to latest stable version
 
       - name: Setup Terraform
-        uses: hashicorp/setup-terraform@v3
+        uses: hashicorp/setup-terraform@v3.1.2  # ✅ Updated to latest stable version
         with:
           terraform_version: "~1.6"
 
@@ -73,13 +71,12 @@ jobs:
     defaults:
       run:
         working-directory: infra
-
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v4.2.2          # ✅ Updated to latest stable version
 
       - name: Setup Terraform
-        uses: hashicorp/setup-terraform@v3
+        uses: hashicorp/setup-terraform@v3.1.2  # ✅ Updated to latest stable version
         with:
           terraform_version: "~1.6"
 
