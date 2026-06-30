@@ -29,6 +29,7 @@ env:
   TF_VAR_cost_centre:       ${{ secrets.TF_VAR_COST_CENTRE }}
 
 jobs:
+  # Checkout and hashicorp/Set-up Terraform — Update to latest stable versions
   # ── Dev: applies automatically on merge to main ──────────────────────────
   apply-dev:
     name: Apply — dev
