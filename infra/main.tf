@@ -9,7 +9,7 @@ data "azurerm_resource_group" "main" {
 # =============================================================
 # STORAGE ACCOUNT
 # =============================================================
-# Test: triggering the CI/CD pipeline via pull request
+# Test: triggering the CI/CD pipeline via pull request 
 
 resource "azurerm_storage_account" "main" {
   name                     = substr(lower("st${var.resource_prefix}${var.environment}"), 0, 24)

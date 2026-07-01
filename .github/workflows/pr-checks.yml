@@ -7,6 +7,7 @@ on:
       - "infra/**"
       - ".github/workflows/**"
 
+      
 permissions:
   id-token: write
   contents: read
