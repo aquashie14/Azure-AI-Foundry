@@ -77,7 +77,7 @@ jobs:
       TF_VAR_resource_prefix:   "aqsh"
       TF_VAR_environment:       "dev"
       TF_VAR_location:          "uksouth"
-      TF_VAR_deploy_model:      "false"
+      TF_VAR_deploy_model:      "true"
       TF_VAR_ai_model_name:     "gpt-4o-mini"
       TF_VAR_ai_model_version:  "2024-07-18"
       TF_VAR_ai_model_capacity: "10"

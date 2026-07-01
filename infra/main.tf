@@ -43,9 +43,20 @@ resource "azurerm_key_vault" "main" {
   soft_delete_retention_days = 7
   purge_protection_enabled   = false
 
+  # Your local identity (aquashie14)
   access_policy {
     tenant_id = data.azurerm_client_config.current.tenant_id
-    object_id = data.azurerm_client_config.current.object_id
+    object_id = "bc109473-a2e2-42ca-a8e9-189eb371c25e"
+
+    secret_permissions = [
+      "Get", "List", "Set", "Delete", "Recover", "Backup", "Restore", "Purge"
+    ]
+  }
+
+  # The GitHub Actions pipeline's service principal
+  access_policy {
+    tenant_id = data.azurerm_client_config.current.tenant_id
+    object_id = "10aef510-2596-4122-9a65-c0d06ecc755f"
 
     secret_permissions = [
       "Get", "List", "Set", "Delete", "Recover", "Backup", "Restore", "Purge"
