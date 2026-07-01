@@ -4,18 +4,15 @@ on:
     branches: [main]
     paths:
       - "infra/**"
-
 permissions:
   id-token: write
   contents: read
-
 env:
   # Azure OIDC authentication — no stored passwords
   ARM_CLIENT_ID:       ${{ secrets.AZURE_CLIENT_ID }}
   ARM_TENANT_ID:       ${{ secrets.AZURE_TENANT_ID }}
   ARM_SUBSCRIPTION_ID: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
   ARM_USE_OIDC:        "true"
-
   # Terraform variables — non-sensitive values set directly here,
   # sensitive values injected from GitHub secrets
   TF_VAR_resource_prefix:   "aqsh"
@@ -27,9 +24,7 @@ env:
   TF_VAR_workload:          "email-triage-assistant"
   TF_VAR_owner:             ${{ secrets.TF_VAR_OWNER }}
   TF_VAR_cost_centre:       ${{ secrets.TF_VAR_COST_CENTRE }}
-
 jobs:
-  # Checkout and hashicorp/Set-up Terraform — Update to latest stable versions
   # ── Dev: applies automatically on merge to main ──────────────────────────
   apply-dev:
     name: Apply — dev
@@ -40,29 +35,24 @@ jobs:
         working-directory: infra
     steps:
       - name: Checkout
-        uses: actions/checkout@v4.2.2          # ✅ Updated to latest stable version
-
+        uses: actions/checkout@v4
       - name: Setup Terraform
-        uses: hashicorp/setup-terraform@v3.1.2  # ✅ Updated to latest stable version
+        uses: hashicorp/setup-terraform@v3
         with:
           terraform_version: "~1.6"
-
       - name: Terraform init
         run: |
           terraform init \
             -backend-config="storage_account_name=${{ secrets.TF_STATE_STORAGE_ACCOUNT }}" \
             -backend-config="key=dev.terraform.tfstate"
-
       - name: Terraform plan
         run: |
           terraform plan \
             -var="environment=dev" \
             -no-color \
             -out=tfplan
-
       - name: Terraform apply — dev
         run: terraform apply -auto-approve tfplan
-
   # ── Prod: pauses for human approval before applying ─────────────────────
   apply-prod:
     name: Apply — prod
@@ -74,19 +64,16 @@ jobs:
         working-directory: infra
     steps:
       - name: Checkout
-        uses: actions/checkout@v4.2.2          # ✅ Updated to latest stable version
-
+        uses: actions/checkout@v4
       - name: Setup Terraform
-        uses: hashicorp/setup-terraform@v3.1.2  # ✅ Updated to latest stable version
+        uses: hashicorp/setup-terraform@v3
         with:
           terraform_version: "~1.6"
-
       - name: Terraform init
         run: |
           terraform init \
             -backend-config="storage_account_name=${{ secrets.TF_STATE_STORAGE_ACCOUNT }}" \
             -backend-config="key=prod.terraform.tfstate"
-
       - name: Terraform plan
         run: |
           terraform plan \
@@ -94,6 +81,5 @@ jobs:
             -var="ai_model_capacity=20" \
             -no-color \
             -out=tfplan
-
       - name: Terraform apply — prod
         run: terraform apply -auto-approve tfplan
