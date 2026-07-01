@@ -6,38 +6,14 @@ on:
     paths:
       - "infra/**"
       - ".github/workflows/**"
-  push:
-    branches-ignore: [main]
-    paths:
-      - "infra/**"
-      - ".github/workflows/**"
 
 permissions:
   id-token: write
   contents: read
   pull-requests: write
 
-env:
-  # Azure OIDC authentication — used only by the plan job
-  ARM_CLIENT_ID:       ${{ secrets.AZURE_CLIENT_ID }}
-  ARM_TENANT_ID:       ${{ secrets.AZURE_TENANT_ID }}
-  ARM_SUBSCRIPTION_ID: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
-  ARM_USE_OIDC:        "true"
-
-  # Terraform variables
-  TF_VAR_resource_prefix:   "aqsh"
-  TF_VAR_environment:       "dev"
-  TF_VAR_location:          "uksouth"
-  TF_VAR_deploy_model:      "false"
-  TF_VAR_ai_model_name:     "gpt-4o-mini"
-  TF_VAR_ai_model_version:  "2024-07-18"
-  TF_VAR_ai_model_capacity: "10"
-  TF_VAR_workload:          "email-triage-assistant"
-  TF_VAR_owner:             ${{ secrets.TF_VAR_OWNER }}
-  TF_VAR_cost_centre:       ${{ secrets.TF_VAR_COST_CENTRE }}
-
 jobs:
-  # ── Runs on every branch push and every PR — no Azure auth needed ─────────
+  # ── Runs on every PR — no Azure auth needed ────────────────────────────
   static-checks:
     name: Static checks (fmt / validate / tfsec)
     runs-on: ubuntu-latest
@@ -81,13 +57,32 @@ jobs:
   # ── existing federated credential (same one apply-dev uses).             ──
   plan:
     name: Terraform plan
-    if: github.event_name == 'pull_request'
     needs: static-checks
     runs-on: ubuntu-latest
     environment: dev
     defaults:
       run:
         working-directory: infra
+
+    # Azure/OIDC env vars scoped to this job only — the only job that
+    # actually needs to authenticate to Azure. static-checks above runs
+    # entirely offline (init -backend=false) so it never sees these.
+    env:
+      ARM_CLIENT_ID:       ${{ secrets.AZURE_CLIENT_ID }}
+      ARM_TENANT_ID:       ${{ secrets.AZURE_TENANT_ID }}
+      ARM_SUBSCRIPTION_ID: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+      ARM_USE_OIDC:        "true"
+
+      TF_VAR_resource_prefix:   "aqsh"
+      TF_VAR_environment:       "dev"
+      TF_VAR_location:          "uksouth"
+      TF_VAR_deploy_model:      "false"
+      TF_VAR_ai_model_name:     "gpt-4o-mini"
+      TF_VAR_ai_model_version:  "2024-07-18"
+      TF_VAR_ai_model_capacity: "10"
+      TF_VAR_workload:          "email-triage-assistant"
+      TF_VAR_owner:             ${{ secrets.TF_VAR_OWNER }}
+      TF_VAR_cost_centre:       ${{ secrets.TF_VAR_COST_CENTRE }}
 
     steps:
       - name: Checkout

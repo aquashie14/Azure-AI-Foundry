@@ -10,13 +10,13 @@ data "azurerm_resource_group" "main" {
 # STORAGE ACCOUNT
 # =============================================================
 # Test: triggering the CI/CD pipeline via pull request
-#Test : Retriggering the CI/CD pipeline via pull request11
+
 resource "azurerm_storage_account" "main" {
-  name                     = "st${var.resource_prefix}${var.environment}"
+  name                     = substr(lower("st${var.resource_prefix}${var.environment}"), 0, 24)
   resource_group_name      = data.azurerm_resource_group.main.name
   location                 = data.azurerm_resource_group.main.location
   account_tier             = "Standard"
-  account_replication_type = "LRS"
+  account_replication_type = "GRS"
 
   https_traffic_only_enabled      = true
   min_tls_version                 = "TLS1_2"
