@@ -1,4 +1,18 @@
-azure-ai-inference>=1.0.0b4
+# Azure SDK — used in config.py for Key Vault access
 azure-identity>=1.17.0
 azure-keyvault-secrets>=4.8.0
+
+# LangChain core + Azure OpenAI integration
+langchain>=0.2.0
+langchain-core>=0.2.0
+langchain-openai>=0.1.0
+
+# LangGraph — multi-step workflow engine
+langgraph>=0.1.0
+
+# Utilities
 python-dotenv>=1.0.0
+pydantic>=2.0.0
+
+#UI
+streamlit>=1.30.0
