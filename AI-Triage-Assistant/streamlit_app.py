@@ -1,6 +1,15 @@
 """
 Task Logistics Customer Service Desk
-UI fixes: radio labels, secondary buttons, text area background
+
+Fixes applied in this version:
+- item/current_item bug: recipient email + subject line no longer leak
+  stale data from the last item in the queue loop when a custom pasted
+  email is used instead of a queue selection
+- Sidebar setup instructions updated to gpt-5-mini (gpt-4o-mini is
+  deprecated and can no longer be deployed)
+- azure_is_configured() now checks the same env var names actually
+  used by config.py (AZURE_AI_KEY / AZURE_AI_ENDPOINT / AZURE_AI_MODEL_NAME)
+  instead of the unused AZURE_OPENAI_* names
 """
 
 from __future__ import annotations
@@ -110,9 +119,19 @@ def local_demo_triage(email_text: str) -> TriageResult:
 
 
 def azure_is_configured() -> bool:
+    """
+    Checks the same env var names actually used by config.py:
+    - Key Vault path: AZURE_KEY_VAULT_URL
+    - Direct path:    AZURE_AI_KEY, AZURE_AI_ENDPOINT, AZURE_AI_MODEL_NAME
+    (previously checked AZURE_OPENAI_* which config.py never reads)
+    """
     key_vault = os.getenv("AZURE_KEY_VAULT_URL")
-    direct    = all([os.getenv("AZURE_OPENAI_API_KEY"), os.getenv("AZURE_OPENAI_ENDPOINT"), os.getenv("AZURE_OPENAI_DEPLOYMENT")])
-    mock      = os.getenv("TRIAGE_MOCK_MODE", "true").lower() == "true"
+    direct    = all([
+        os.getenv("AZURE_AI_KEY"),
+        os.getenv("AZURE_AI_ENDPOINT"),
+        os.getenv("AZURE_AI_MODEL_NAME"),
+    ])
+    mock = os.getenv("TRIAGE_MOCK_MODE", "true").lower() == "true"
     return (key_vault or direct) and not mock
 
 
@@ -162,16 +181,14 @@ st.set_page_config(
     initial_sidebar_state="collapsed",
 )
 
-# ── CSS — fixes radio labels, secondary buttons, text area ───────────────────
+# ── CSS ─────────────────────────────────────────────────────────────────────
 
 st.markdown("""
 <style>
-    /* ── Base ── */
     .stApp { background: #f4f6f9 !important; color: #172033 !important; }
     [data-testid="stHeader"] { background: transparent; }
     .block-container { padding: 1.2rem 1.6rem 2rem; max-width: 1500px; }
 
-    /* ── FIX: Radio button labels invisible ── */
     div[data-testid="stRadio"] label p {
         color: #172033 !important;
         font-size: 0.88rem !important;
@@ -180,7 +197,6 @@ st.markdown("""
         color: #172033 !important;
     }
 
-    /* ── FIX: Secondary buttons (Hold, Assign, Needs edit) black ── */
     div[data-testid="stButton"] > button {
         border-radius: 7px;
         min-height: 2.45rem;
@@ -194,7 +210,6 @@ st.markdown("""
         border-color: #203354 !important;
         color: #172033 !important;
     }
-    /* Primary buttons stay red */
     div[data-testid="stButton"] > button[kind="primary"] {
         background-color: #c0392b !important;
         color: white !important;
@@ -204,7 +219,6 @@ st.markdown("""
         background-color: #a93226 !important;
     }
 
-    /* ── FIX: Text area dark background ── */
     div[data-testid="stTextArea"] textarea {
         background-color: #ffffff !important;
         color: #172033 !important;
@@ -214,17 +228,27 @@ st.markdown("""
         line-height: 1.5 !important;
     }
 
-    /* ── FIX: Checkbox labels invisible ── */
+    div[data-testid="stTextInput"] input {
+        background-color: #ffffff !important;
+        color: #172033 !important;
+        border-radius: 8px !important;
+        border-color: #d8dee8 !important;
+    }
+
     div[data-testid="stCheckbox"] label p {
         color: #172033 !important;
     }
 
-    /* ── FIX: Warning/info text ── */
+    div[data-testid="stCheckbox"] > label > div:first-child {
+        background-color: #ffffff !important;
+        border: 1.5px solid #d8dee8 !important;
+        border-radius: 4px !important;
+    }
+
     div[data-testid="stAlert"] {
         color: #172033 !important;
     }
 
-    /* ── Header bar ── */
     .desk-top {
         background: #203354; color: white; border-radius: 8px;
         padding: 18px 22px; margin-bottom: 14px;
@@ -233,7 +257,6 @@ st.markdown("""
     .desk-title { font-size: 1.45rem; font-weight: 780; margin: 0; }
     .desk-subtitle { color: #d8e4f3; margin-top: 5px; font-size: .94rem; }
 
-    /* ── Metric strip ── */
     .metric-strip {
         display: grid; grid-template-columns: repeat(4, minmax(0, 1fr));
         gap: 10px; margin-bottom: 14px;
@@ -245,7 +268,6 @@ st.markdown("""
     .desk-metric span { color: #5a6578; display: block; font-size: .78rem; margin-bottom: 4px; }
     .desk-metric strong { font-size: 1.25rem; color: #172033; }
 
-    /* ── Queue cards ── */
     .queue-card {
         background: #ffffff; border: 1px solid #d8dee8;
         border-radius: 8px; padding: 12px;
@@ -254,7 +276,6 @@ st.markdown("""
     .queue-meta { color: #5a6578; font-size: .78rem; }
     .queue-subject { font-weight: 720; margin: 4px 0 6px; color: #172033; }
 
-    /* ── Pills ── */
     .tag {
         display: inline-flex; align-items: center; border-radius: 999px;
         padding: 4px 9px; font-size: .76rem; font-weight: 700;
@@ -266,7 +287,6 @@ st.markdown("""
     .tag-red   { background: #fde8e7; color: #b42318; border-color: #f8c2bd; }
     .tag-teal  { background: #dff5f2; color: #0f766e; border-color: #b7e3de; }
 
-    /* ── Result panels ── */
     .result-panel {
         background: #ffffff; border: 1px solid #d8dee8;
         border-radius: 8px; padding: 16px 18px; margin-bottom: 12px;
@@ -277,7 +297,6 @@ st.markdown("""
     }
     .summary-line { font-size: 1rem; line-height: 1.45; color: #172033; }
 
-    /* ── Human in the loop banner ── */
     .human-loop {
         background: #fff7e6; border: 1px solid #f3d391;
         border-left: 5px solid #f3b23c; border-radius: 8px;
@@ -285,7 +304,6 @@ st.markdown("""
         margin-bottom: 12px; font-weight: 650;
     }
 
-    /* ── Subheaders ── */
     h3 { color: #172033 !important; }
 
     @media (max-width: 900px) {
@@ -324,7 +342,7 @@ with st.sidebar:
     st.code("""
 TRIAGE_MOCK_MODE=false
 AZURE_KEY_VAULT_URL=https://kv-aqsh-dev.vault.azure.net/
-AZURE_AI_MODEL_NAME=gpt-4o-mini
+AZURE_AI_MODEL_NAME=gpt-5-mini
     """.strip())
 
     st.subheader("Email sending")
@@ -365,16 +383,16 @@ with queue_col:
 
     st.markdown("<br>", unsafe_allow_html=True)
 
-    for item in SAMPLE_EMAILS:
-        preview        = local_demo_triage(item["body"])
+    for queue_item in SAMPLE_EMAILS:
+        preview        = local_demo_triage(queue_item["body"])
         priority_class = "tag-red" if preview.priority == "High" else "tag-green"
-        is_selected    = selected_label.startswith(item["id"])
+        is_selected    = selected_label.startswith(queue_item["id"])
         border         = "border: 2px solid #203354;" if is_selected else ""
 
         st.markdown(f"""
             <div class="queue-card" style="{border}">
-                <div class="queue-meta">{item["received"]} · {item["from"]} · {item["id"]}</div>
-                <div class="queue-subject">{item["subject"]}</div>
+                <div class="queue-meta">{queue_item["received"]} · {queue_item["from"]} · {queue_item["id"]}</div>
+                <div class="queue-subject">{queue_item["subject"]}</div>
                 <span class="tag tag-blue">{preview.category}</span>
                 <span class="tag {priority_class}">{preview.priority}</span>
             </div>
@@ -390,14 +408,29 @@ with work_col:
         None,
     )
 
-    selected_id    = SAMPLE_EMAILS[selected_index]["id"]   if selected_index is not None else "ET-0000"
-    selected_body  = SAMPLE_EMAILS[selected_index]["body"] if selected_index is not None else ""
+    # FIX: current_item is always explicitly set here, never left over
+    # from the queue loop above. When no queue email is selected (i.e.
+    # "New pasted email" is chosen), this falls back to sensible
+    # generic values instead of silently reusing stale queue data.
+    if selected_index is not None:
+        current_item = SAMPLE_EMAILS[selected_index]
+        selected_id   = current_item["id"]
+        selected_body = current_item["body"]
+    else:
+        current_item = {
+            "id":       "ET-0000",
+            "from":     "Customer",
+            "subject":  "your enquiry",
+            "received": "",
+            "body":     "",
+        }
+        selected_id   = "ET-0000"
+        selected_body = ""
 
     if selected_index is not None:
-        item = SAMPLE_EMAILS[selected_index]
         st.markdown(
             f"<div style='font-size:.85rem;color:#5a6578;margin-bottom:6px;'>"
-            f"{item['received']} · <strong>{item['from']}</strong> · {item['id']}</div>",
+            f"{current_item['received']} · <strong>{current_item['from']}</strong> · {current_item['id']}</div>",
             unsafe_allow_html=True,
         )
 
@@ -422,7 +455,6 @@ with work_col:
     if assign:
         st.info("Assign functionality — coming soon.")
 
-    # Run triage when email is present
     result = triage_email(email_text, selected_id) if email_text.strip() else None
 
 # ── RIGHT: Triage result ──────────────────────────────────────────────────────
@@ -466,9 +498,12 @@ with review_col:
             height=220,
         )
 
+        # FIX: uses current_item (always correctly set) instead of the
+        # old "item" variable that could leak stale data from the queue loop
         recipient_email = st.text_input(
             "Send reply to (customer email)",
-            value=f"{item['from'].lower().replace(' ', '.')}@example.com" if selected_index is not None else "",
+            value=f"{current_item['from'].lower().replace(' ', '.')}@example.com"
+                  if current_item['from'] != "Customer" else "",
             help="This is where the approved reply will be sent. Edit if needed.",
         )
 
@@ -479,11 +514,11 @@ with review_col:
             st.button("✏️ Needs edit", use_container_width=True)
 
         if approved:
-            from email_sender import is_smtp_configured, send_email
+            from email_sender import send_email
 
             send_result = send_email(
                 to_address=recipient_email,
-                subject=f"Re: {item['subject']}" if selected_index is not None else "Re: your enquiry",
+                subject=f"Re: {current_item['subject']}",
                 body=final_reply,
             )
 
