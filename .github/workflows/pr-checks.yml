@@ -29,7 +29,7 @@ jobs:
       - name: Setup Terraform
         uses: hashicorp/setup-terraform@v3
         with:
-          terraform_version: "~1.6.6"
+          terraform_version: "1.6.6"
 
       # ── Format ───────────────────────────────────────────────────────────
       - name: Terraform fmt
@@ -78,9 +78,9 @@ jobs:
       TF_VAR_environment:       "dev"
       TF_VAR_location:          "uksouth"
       TF_VAR_deploy_model:      "true"
-      TF_VAR_ai_model_name:     "gpt-4o-mini"
-      TF_VAR_ai_model_version:  "2024-07-18"
-      TF_VAR_ai_model_capacity: "10"
+      TF_VAR_ai_model_name:     "gpt-5-mini"
+      TF_VAR_ai_model_version:  "2025-08-07"
+      TF_VAR_ai_model_capacity: "3"
       TF_VAR_workload:          "email-triage-assistant"
       TF_VAR_owner:             ${{ secrets.TF_VAR_OWNER }}
       TF_VAR_cost_centre:       ${{ secrets.TF_VAR_COST_CENTRE }}
@@ -92,7 +92,7 @@ jobs:
       - name: Setup Terraform
         uses: hashicorp/setup-terraform@v3
         with:
-          terraform_version: "~1.6"
+          terraform_version: "1.6.6"
 
       # ── Initialise with remote backend ────────────────────────────────────
       - name: Terraform init

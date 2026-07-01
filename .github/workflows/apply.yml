@@ -1,6 +1,10 @@
 name: Terraform Apply
 
 on:
+  # Intentional: this workflow deploys infrastructure whenever code is
+  # merged into main. pr-checks.yml handles validation/plan on pull
+  # requests — this file is the deployment workflow, triggered only
+  # by pushes to main (i.e. merges).
   push:
     branches: [main]
     paths:
@@ -22,9 +26,9 @@ env:
   TF_VAR_resource_prefix:   "aqsh"
   TF_VAR_location:          "uksouth"
   TF_VAR_deploy_model:      "true"
-  TF_VAR_ai_model_name:     "gpt-4o-mini"
-  TF_VAR_ai_model_version:  "2024-07-18"
-  TF_VAR_ai_model_capacity: "10"
+  TF_VAR_ai_model_name:     "gpt-5-mini"
+  TF_VAR_ai_model_version:  "2025-08-07"
+  TF_VAR_ai_model_capacity: "3"
   TF_VAR_workload:          "email-triage-assistant"
   TF_VAR_owner:             ${{ secrets.TF_VAR_OWNER }}
   TF_VAR_cost_centre:       ${{ secrets.TF_VAR_COST_CENTRE }}
