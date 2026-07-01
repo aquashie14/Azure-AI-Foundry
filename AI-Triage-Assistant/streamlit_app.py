@@ -116,16 +116,41 @@ def azure_is_configured() -> bool:
     return (key_vault or direct) and not mock
 
 
-SAMPLE_EMAILS = [
-    {"id": "ET-1042", "from": "Priya Shah",    "subject": "Pallet delivery still not arrived", "received": "09:14",
-     "body": "Hello, our pallet consignment TSK447812 was due at our Birmingham depot yesterday. The tracking has not moved since Hinckley and we need this stock for today's outbound run. Can someone confirm when it will arrive?"},
-    {"id": "ET-1043", "from": "Mark Ellison",  "subject": "Need to change delivery address",   "received": "09:22",
-     "body": "Please update the delivery address for booking TSK448019. It should go to Unit 4, Riverside Estate, Leeds LS10 1AA instead of the Manchester site. The collection has already happened."},
-    {"id": "ET-1044", "from": "Hannah Cooper", "subject": "Invoice query",                      "received": "09:31",
-     "body": "We have been charged a waiting time fee on invoice INV-90318, but our warehouse team says the driver was loaded within the booked slot. Can you review and advise?"},
-    {"id": "ET-1045", "from": "Owen Matthews", "subject": "Damaged cartons on delivery",        "received": "09:43",
-     "body": "Four cartons arrived crushed this morning on consignment TSK448112. The driver noted it on the POD. Please tell us how to open a claim and what photos you need."},
-]
+def _load_sample_emails() -> list[dict]:
+    """
+    Loads the real sample email set from sample_emails.py (9 emails,
+    including edge cases: garbled spam, multi-intent, empty body).
+
+    That file uses fields: id, sender, time, subject, priority, body
+    The UI below expects: id, from, received, subject, body
+    This adapter bridges the two without changing either file.
+    """
+    try:
+        from sample_emails import SAMPLE_EMAILS as _raw_emails
+
+        adapted = []
+        for e in _raw_emails:
+            adapted.append({
+                "id":       e["id"],
+                "from":     e.get("sender", "Unknown"),
+                "received": e.get("time", ""),
+                "subject":  e.get("subject") or "(no subject)",
+                "body":     e.get("body", ""),
+            })
+        return adapted
+
+    except Exception as error:
+        st.warning(f"Could not load sample_emails.py, using fallback set. Error: {error}")
+        return [
+            {"id": "ET-1042", "from": "Priya Shah", "subject": "Pallet delivery still not arrived",
+             "received": "09:14",
+             "body": "Hello, our pallet consignment TSK447812 was due at our Birmingham depot yesterday. "
+                     "The tracking has not moved since Hinckley and we need this stock for today's outbound run. "
+                     "Can someone confirm when it will arrive?"},
+        ]
+
+
+SAMPLE_EMAILS = _load_sample_emails()
 
 
 # ── Page config ───────────────────────────────────────────────────────────────
@@ -263,23 +288,6 @@ st.markdown("""
     /* ── Subheaders ── */
     h3 { color: #172033 !important; }
 
-    /* FIX: Unchecked checkbox squares black */
-    div[data-testid="stCheckbox"] > label > div:first-child {
-        background-color: #ffffff !important;
-        border: 1.5px solid #d8dee8 !important;
-        border-radius: 4px !important;
-    }
-
-    div[data-testid="stCheckbox"] svg {
-        color: #ffffff !important;
-        background: #ffffff !important;
-        border-radius: 3px;
-    }
-
-    @media (max-width: 900px) {
-        .metric-strip { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-    }      
-
     @media (max-width: 900px) {
         .metric-strip { grid-template-columns: repeat(2, minmax(0, 1fr)); }
     }
@@ -318,6 +326,25 @@ TRIAGE_MOCK_MODE=false
 AZURE_KEY_VAULT_URL=https://kv-aqsh-dev.vault.azure.net/
 AZURE_AI_MODEL_NAME=gpt-4o-mini
     """.strip())
+
+    st.subheader("Email sending")
+    from email_sender import is_smtp_configured
+    if is_smtp_configured():
+        st.success("SMTP connected — Approve & Send sends real emails")
+    else:
+        st.warning("Simulate mode — approvals log but don't send")
+        st.caption("Set the following in your .env to send for real:")
+    st.code("""
+SMTP_HOST=smtp.gmail.com
+SMTP_PORT=587
+SMTP_USER=your_email@gmail.com
+SMTP_PASSWORD=your_app_password
+SMTP_FROM_NAME=Task Logistics Customer Service
+    """.strip())
+    st.caption(
+        "Gmail: use an App Password, not your real password. "
+        "Generate one at myaccount.google.com/apppasswords"
+    )
 
 # ── Three column layout ───────────────────────────────────────────────────────
 
@@ -439,14 +466,37 @@ with review_col:
             height=220,
         )
 
+        recipient_email = st.text_input(
+            "Send reply to (customer email)",
+            value=f"{item['from'].lower().replace(' ', '.')}@example.com" if selected_index is not None else "",
+            help="This is where the approved reply will be sent. Edit if needed.",
+        )
+
         col_approve, col_edit = st.columns(2)
         with col_approve:
-            approved = st.button("✅ Approve draft", type="primary", use_container_width=True)
+            approved = st.button("✅ Approve & Send", type="primary", use_container_width=True)
         with col_edit:
             st.button("✏️ Needs edit", use_container_width=True)
 
         if approved:
-            st.success("Draft approved for the human agent queue. It has not been sent.")
+            from email_sender import is_smtp_configured, send_email
+
+            send_result = send_email(
+                to_address=recipient_email,
+                subject=f"Re: {item['subject']}" if selected_index is not None else "Re: your enquiry",
+                body=final_reply,
+            )
+
+            if send_result.sent and send_result.simulated:
+                st.success(f"Draft approved. {send_result.message}")
+                st.caption(
+                    "Running in simulate mode — no email credentials configured. "
+                    "See sidebar for setup instructions."
+                )
+            elif send_result.sent:
+                st.success(f"✅ {send_result.message}")
+            else:
+                st.error(f"Could not send: {send_result.message}")
 
         with st.expander("Agent checklist", expanded=True):
             st.checkbox("Reference number checked",
