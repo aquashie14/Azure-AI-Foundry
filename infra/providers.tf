@@ -12,9 +12,6 @@ terraform {
     }
   }
 
-  # Remote state backend — lives in Azure Storage, not on anyone's laptop.
-  # The storage account and container must exist BEFORE you run terraform init.
-  # See the README for the one-time bootstrap commands to create them.
   backend "azurerm" {
     resource_group_name  = "AIE-WEP-2"
     storage_account_name = "staqshtfstate"
@@ -23,7 +20,7 @@ terraform {
   }
 }
 
-# Azure provider — authenticates via OIDC in the pipeline (no stored secrets),
+# Azure provider - authenticates via OIDC in the pipeline (no stored secrets),
 # or via 'az login' locally.
 provider "azurerm" {
   skip_provider_registration = true
