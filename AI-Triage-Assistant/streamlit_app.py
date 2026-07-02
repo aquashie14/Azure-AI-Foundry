@@ -84,7 +84,7 @@ def first_reference(text: str) -> str:
     match = re.search(r"\b(?:TSK|INV|POD|BK)-?\d{4,}\b", text, re.IGNORECASE)
     return match.group(0).upper() if match else "the customer's query"
 
-
+#Test 
 def local_demo_triage(email_text: str) -> TriageResult:
     text   = email_text.lower()
     scored = []
