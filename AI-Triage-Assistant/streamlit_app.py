@@ -245,7 +245,34 @@ st.markdown("""
         border-radius: 4px !important;
     }
 
-    div[data-testid="stAlert"] {
+    div[data-testid="stAlert"],
+    div[data-testid="stAlert"] p,
+    div[data-testid="stAlert"] span,
+    div[data-testid="stAlert"] div {
+        color: #172033 !important;
+    }
+
+    /* Warning banners (yellow) — ensure readable dark text */
+    div[data-testid="stAlert"][class*="warning"],
+    div[data-testid="stAlert"][class*="warning"] p {
+        color: #5f3900 !important;
+    }
+
+    /* Success banners (green) — ensure readable dark text */
+    div[data-testid="stAlert"][class*="success"],
+    div[data-testid="stAlert"][class*="success"] p {
+        color: #0f5132 !important;
+    }
+
+    /* Error banners (red) — ensure readable dark text */
+    div[data-testid="stAlert"][class*="error"],
+    div[data-testid="stAlert"][class*="error"] p {
+        color: #842029 !important;
+    }
+
+    /* Info banners (blue) — ensure readable dark text */
+    div[data-testid="stAlert"][class*="info"],
+    div[data-testid="stAlert"][class*="info"] p {
         color: #172033 !important;
     }
 
