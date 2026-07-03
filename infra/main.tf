@@ -9,14 +9,14 @@ data "azurerm_resource_group" "main" {
 # =============================================================
 # STORAGE ACCOUNT
 # =============================================================
-# Test: triggering the CI/CD pipeline via pull request
-#Test : Retriggering the CI/CD pipeline via pull request
+# Test: triggering the CI/CD pipeline via pull request 
+
 resource "azurerm_storage_account" "main" {
-  name                     = "st${var.resource_prefix}${var.environment}"
+  name                     = substr(lower("st${var.resource_prefix}${var.environment}"), 0, 24)
   resource_group_name      = data.azurerm_resource_group.main.name
   location                 = data.azurerm_resource_group.main.location
   account_tier             = "Standard"
-  account_replication_type = "LRS"
+  account_replication_type = "GRS"
 
   https_traffic_only_enabled      = true
   min_tls_version                 = "TLS1_2"
@@ -48,9 +48,20 @@ resource "azurerm_key_vault" "main" {
   soft_delete_retention_days = 7
   purge_protection_enabled   = false
 
+  # Your local identity (aquashie14)
   access_policy {
     tenant_id = data.azurerm_client_config.current.tenant_id
-    object_id = data.azurerm_client_config.current.object_id
+    object_id = "bc109473-a2e2-42ca-a8e9-189eb371c25e"
+
+    secret_permissions = [
+      "Get", "List", "Set", "Delete", "Recover", "Backup", "Restore", "Purge"
+    ]
+  }
+
+  # The GitHub Actions pipeline's service principal
+  access_policy {
+    tenant_id = data.azurerm_client_config.current.tenant_id
+    object_id = "10aef510-2596-4122-9a65-c0d06ecc755f"
 
     secret_permissions = [
       "Get", "List", "Set", "Delete", "Recover", "Backup", "Restore", "Purge"

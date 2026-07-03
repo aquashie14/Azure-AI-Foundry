@@ -1,33 +1,36 @@
 name: Terraform Apply
 
 on:
+  # This workflow deploys infrastructure whenever code is merged into
+  # main. pr-checks.yml handles validation/plan on pull requests — this
+  # file is the deployment workflow, triggered only by pushes to main
+  # (i.e. merges).
   push:
     branches: [main]
-    paths:
-      - "infra/**"
 
 permissions:
   id-token: write
   contents: read
 
-env:
-  # Azure OIDC authentication — no stored passwords
-  ARM_CLIENT_ID:       ${{ secrets.AZURE_CLIENT_ID }}
-  ARM_TENANT_ID:       ${{ secrets.AZURE_TENANT_ID }}
-  ARM_SUBSCRIPTION_ID: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
-  ARM_USE_OIDC:        "true"
+# Issue 4: prevent overlapping applies against the same state if two
+# pushes to main land close together.
+concurrency:
+  group: terraform-apply-${{ github.ref }}
+  cancel-in-progress: false
 
-  # Terraform variables — non-sensitive values set directly here,
+env:
   # sensitive values injected from GitHub secrets
-  TF_VAR_resource_prefix:   "aqsh"
-  TF_VAR_location:          "uksouth"
-  TF_VAR_deploy_model:      "false"
-  TF_VAR_ai_model_name:     "gpt-4o-mini"
-  TF_VAR_ai_model_version:  "2024-07-18"
-  TF_VAR_ai_model_capacity: "10"
-  TF_VAR_workload:          "email-triage-assistant"
-  TF_VAR_owner:             ${{ secrets.TF_VAR_OWNER }}
-  TF_VAR_cost_centre:       ${{ secrets.TF_VAR_COST_CENTRE }}
+  TF_VAR_resource_prefix:  "aqsh"
+  TF_VAR_location:         "uksouth"
+  TF_VAR_deploy_model:     "true"
+  TF_VAR_ai_model_name:     "gpt-5.1"
+  TF_VAR_ai_model_version:  "2025-11-13"
+  TF_VAR_workload:         "email-triage-assistant"
+  TF_VAR_owner:            ${{ secrets.TF_VAR_OWNER }}
+  TF_VAR_cost_centre:      ${{ secrets.TF_VAR_COST_CENTRE }}
+  # Issue 6: TF_VAR_ai_model_capacity intentionally removed from here —
+  # it is now scoped per-job below (dev=3, prod=3 — Azure max capacity for
+  # gpt-5.1 in uksouth is 3, confirmed via az cognitiveservices account list-models).
 
 jobs:
   # ── Dev: applies automatically on merge to main ──────────────────────────
@@ -35,34 +38,53 @@ jobs:
     name: Apply — dev
     runs-on: ubuntu-latest
     environment: dev
+    timeout-minutes: 20
     defaults:
       run:
         working-directory: infra
-
+    env:
+      ARM_USE_OIDC:        "true"
+      ARM_CLIENT_ID:       ${{ secrets.AZURE_CLIENT_ID }}
+      ARM_TENANT_ID:       ${{ secrets.AZURE_TENANT_ID }}
+      ARM_SUBSCRIPTION_ID: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+      TF_VAR_ai_model_capacity: "3"
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Azure login
+        uses: azure/login@v2
+        with:
+          client-id:       ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id:       ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+
       - name: Setup Terraform
         uses: hashicorp/setup-terraform@v3
         with:
-          terraform_version: "~1.6"
+          terraform_version: "1.6.6"
 
       - name: Terraform init
         run: |
-          terraform init \
+          terraform init -input=false \
             -backend-config="storage_account_name=${{ secrets.TF_STATE_STORAGE_ACCOUNT }}" \
             -backend-config="key=dev.terraform.tfstate"
 
+      - name: Terraform format check
+        run: terraform fmt -check -recursive
+
+      - name: Terraform validate
+        run: terraform validate
+
       - name: Terraform plan
         run: |
-          terraform plan \
+          terraform plan -input=false \
             -var="environment=dev" \
             -no-color \
             -out=tfplan
 
       - name: Terraform apply — dev
-        run: terraform apply -auto-approve tfplan
+        run: terraform apply -input=false -auto-approve tfplan
 
   # ── Prod: pauses for human approval before applying ─────────────────────
   apply-prod:
@@ -70,32 +92,50 @@ jobs:
     runs-on: ubuntu-latest
     environment: production
     needs: apply-dev
+    timeout-minutes: 20
     defaults:
       run:
         working-directory: infra
-
+    env:
+      ARM_USE_OIDC:        "true"
+      ARM_CLIENT_ID:       ${{ secrets.AZURE_CLIENT_ID }}
+      ARM_TENANT_ID:       ${{ secrets.AZURE_TENANT_ID }}
+      ARM_SUBSCRIPTION_ID: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+      TF_VAR_ai_model_capacity: "3"
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Azure login
+        uses: azure/login@v2
+        with:
+          client-id:       ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id:       ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+
       - name: Setup Terraform
         uses: hashicorp/setup-terraform@v3
         with:
-          terraform_version: "~1.6"
+          terraform_version: "1.6.6"
 
       - name: Terraform init
         run: |
-          terraform init \
+          terraform init -input=false \
             -backend-config="storage_account_name=${{ secrets.TF_STATE_STORAGE_ACCOUNT }}" \
             -backend-config="key=prod.terraform.tfstate"
 
+      - name: Terraform format check
+        run: terraform fmt -check -recursive
+
+      - name: Terraform validate
+        run: terraform validate
+
       - name: Terraform plan
         run: |
-          terraform plan \
+          terraform plan -input=false \
             -var="environment=prod" \
-            -var="ai_model_capacity=20" \
             -no-color \
             -out=tfplan
 
       - name: Terraform apply — prod
-        run: terraform apply -auto-approve tfplan
+        run: terraform apply -input=false -auto-approve tfplan
