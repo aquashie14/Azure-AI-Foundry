@@ -78,8 +78,8 @@ jobs:
       TF_VAR_environment:       "dev"
       TF_VAR_location:          "uksouth"
       TF_VAR_deploy_model:      "true"
-      TF_VAR_ai_model_name:     "gpt-5-mini"
-      TF_VAR_ai_model_version:  "2025-08-07"
+      TF_VAR_ai_model_name:     "gpt-5.1"
+      TF_VAR_ai_model_version:  "2025-11-13"
       TF_VAR_ai_model_capacity: "3"
       TF_VAR_workload:          "email-triage-assistant"
       TF_VAR_owner:             ${{ secrets.TF_VAR_OWNER }}

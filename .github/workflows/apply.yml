@@ -23,14 +23,14 @@ env:
   TF_VAR_resource_prefix:  "aqsh"
   TF_VAR_location:         "uksouth"
   TF_VAR_deploy_model:     "true"
-  TF_VAR_ai_model_name:    "gpt-5-mini"
-  TF_VAR_ai_model_version: "2025-08-07"
+  TF_VAR_ai_model_name:     "gpt-5.1"
+  TF_VAR_ai_model_version:  "2025-11-13"
   TF_VAR_workload:         "email-triage-assistant"
   TF_VAR_owner:            ${{ secrets.TF_VAR_OWNER }}
   TF_VAR_cost_centre:      ${{ secrets.TF_VAR_COST_CENTRE }}
   # Issue 6: TF_VAR_ai_model_capacity intentionally removed from here —
-  # it's now scoped per-job below (dev=3, prod=20) instead of being set
-  # globally and then overridden via -var in prod.
+  # it is now scoped per-job below (dev=3, prod=3 — Azure max capacity for
+  # gpt-5.1 in uksouth is 3, confirmed via az cognitiveservices account list-models).
 
 jobs:
   # ── Dev: applies automatically on merge to main ──────────────────────────
@@ -101,7 +101,7 @@ jobs:
       ARM_CLIENT_ID:       ${{ secrets.AZURE_CLIENT_ID }}
       ARM_TENANT_ID:       ${{ secrets.AZURE_TENANT_ID }}
       ARM_SUBSCRIPTION_ID: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
-      TF_VAR_ai_model_capacity: "20"
+      TF_VAR_ai_model_capacity: "3"
     steps:
       - name: Checkout
         uses: actions/checkout@v4
