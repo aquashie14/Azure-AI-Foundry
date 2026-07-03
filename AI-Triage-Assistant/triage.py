@@ -247,7 +247,7 @@ def _build_model(config: TriageConfig):
         api_key          = config.key,
         azure_deployment = config.model_name,
         temperature      = 1,
-        api_version      = "2025-11-13",
+        api_version      = "2024-10-21",
         max_tokens       = 500
     )
 
