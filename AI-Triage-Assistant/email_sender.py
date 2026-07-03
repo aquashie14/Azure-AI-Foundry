@@ -51,6 +51,10 @@ def send_email(to_address: str, subject: str, body: str) -> SendResult:
     If Resend isn't configured, simulates a successful send instead of
     failing — this keeps demos and local dev working without needing a
     real Resend account.
+    
+    ⚠️ SECURITY: The RESEND_API_KEY is transmitted in the Authorization header.
+    During debugging or maintenance, do NOT log or print request objects,
+    headers, or full exceptions — they may contain the API key.
     """
     if not to_address or "@" not in to_address:
         return SendResult(sent=False, simulated=False, message="Invalid recipient email address.")
@@ -70,7 +74,7 @@ def send_email(to_address: str, subject: str, body: str) -> SendResult:
         response = requests.post(
             RESEND_API_URL,
             headers={
-                "Authorization": f"Bearer {api_key}",
+                "Authorization": f"Bearer {api_key}",  # SECURITY: Contains secret — do NOT log
                 "Content-Type": "application/json",
             },
             json={
@@ -106,4 +110,9 @@ def send_email(to_address: str, subject: str, body: str) -> SendResult:
     except requests.exceptions.ConnectionError:
         return SendResult(sent=False, simulated=False, message="Send failed: could not reach Resend.")
     except Exception as error:
-        return SendResult(sent=False, simulated=False, message=f"Send failed: {error}")
+        # Prevent API key leakage in error messages
+        error_msg = str(error)
+        if any(indicator in error_msg for indicator in ["Bearer", "RESEND_API_KEY", "Authorization"]):
+            error_msg = "API authentication failed (check logs for details)"
+        
+        return SendResult(sent=False, simulated=False, message=f"Send failed: {error_msg}")
