@@ -346,22 +346,18 @@ AZURE_AI_MODEL_NAME=gpt-5-mini
     """.strip())
 
     st.subheader("Email sending")
-    from email_sender import is_smtp_configured
-    if is_smtp_configured():
-        st.success("SMTP connected — Approve & Send sends real emails")
+    from email_sender import is_resend_configured
+    if is_resend_configured():
+        st.success("Resend connected — Approve & Send sends real emails")
     else:
         st.warning("Simulate mode — approvals log but don't send")
         st.caption("Set the following in your .env to send for real:")
     st.code("""
-SMTP_HOST=smtp.gmail.com
-SMTP_PORT=587
-SMTP_USER=your_email@gmail.com
-SMTP_PASSWORD=your_app_password
-SMTP_FROM_NAME=Task Logistics Customer Service
+RESEND_API_KEY=re_your_key_here
     """.strip())
     st.caption(
-        "Gmail: use an App Password, not your real password. "
-        "Generate one at myaccount.google.com/apppasswords"
+        "Sign up free at resend.com. Until you verify a sending domain, "
+        "emails can only be delivered to the address you signed up with."
     )
 
 # ── Three column layout ───────────────────────────────────────────────────────
@@ -450,12 +446,30 @@ with work_col:
     with col_c:
         assign  = st.button("👤 Assign",  use_container_width=True)
 
-    if hold:
-        st.info("Email placed on hold.")
-    if assign:
-        st.info("Assign functionality — coming soon.")
+    # Session state tracks Hold/Assign status per email so it persists
+    # across reruns instead of just flashing a message once.
+    if "email_status" not in st.session_state:
+        st.session_state.email_status = {}
 
-    result = triage_email(email_text, selected_id) if email_text.strip() else None
+    if hold:
+        st.session_state.email_status[selected_id] = "on_hold"
+    if assign:
+        st.session_state.email_status[selected_id] = "assigned"
+    if analyse:
+        # Analysing clears any hold/assign status — resumes normal triage
+        st.session_state.email_status.pop(selected_id, None)
+
+    current_status = st.session_state.email_status.get(selected_id)
+    if current_status == "on_hold":
+        st.warning(f"⏸ {selected_id} is on hold. Click Analyse to resume triage.")
+    elif current_status == "assigned":
+        st.info(f"👤 {selected_id} has been assigned. Assign-to-agent picker coming soon.")
+
+    # Don't run triage while an email is on hold — that's the point of Hold
+    if email_text.strip() and current_status != "on_hold":
+        result = triage_email(email_text, selected_id)
+    else:
+        result = None
 
 # ── RIGHT: Triage result ──────────────────────────────────────────────────────
 
@@ -511,7 +525,14 @@ with review_col:
         with col_approve:
             approved = st.button("✅ Approve & Send", type="primary", use_container_width=True)
         with col_edit:
-            st.button("✏️ Needs edit", use_container_width=True)
+            needs_edit = st.button("✏️ Needs edit", use_container_width=True)
+
+        if needs_edit:
+            st.session_state.email_status[selected_id] = "needs_edit"
+            st.warning(
+                "✏️ Flagged for edit. The draft above is still editable — "
+                "update the text, then click Approve & Send when ready."
+            )
 
         if approved:
             from email_sender import send_email
@@ -521,6 +542,10 @@ with review_col:
                 subject=f"Re: {current_item['subject']}",
                 body=final_reply,
             )
+
+            # Clear any "needs edit" flag once successfully approved
+            if send_result.sent:
+                st.session_state.email_status.pop(selected_id, None)
 
             if send_result.sent and send_result.simulated:
                 st.success(f"Draft approved. {send_result.message}")
