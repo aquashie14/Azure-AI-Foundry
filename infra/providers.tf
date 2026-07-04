@@ -23,7 +23,7 @@ terraform {
   }
 }
 
-# Azure provider — authenticates via OIDC in the pipeline (no stored secrets),
+# Azure provider - authenticates via OIDC in the pipeline (no stored secrets),
 # or via 'az login' locally.
 provider "azurerm" {
   skip_provider_registration = true

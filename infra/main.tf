@@ -22,7 +22,12 @@ resource "azurerm_storage_account" "main" {
   min_tls_version                 = "TLS1_2"
   allow_nested_items_to_be_public = false
 
-  tags = local.tags
+  tags = {
+    owner       = var.owner
+    environment = var.environment
+    # cost-centre and workload tags deliberately removed
+    # This PR should be flagged by the governance scanner
+  }
 }
 
 resource "azurerm_storage_container" "tfstate" {
